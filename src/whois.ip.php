@@ -34,7 +34,7 @@ class ip_handler extends WhoisClient {
     public $REGISTRARS = array(
         'European Regional Internet Registry/RIPE NCC' => 'whois.ripe.net',
         'RIPE Network Coordination Centre' => 'whois.ripe.net',
-        'Asia Pacific Network Information	Center' => 'whois.apnic.net',
+        'Asia Pacific Network Information   Center' => 'whois.apnic.net',
         'Asia Pacific Network Information Centre' => 'whois.apnic.net',
         'Latin American and Caribbean IP address Regional Registry' => 'whois.lacnic.net',
         'African Network Information Center' => 'whois.afrinic.net'
@@ -85,6 +85,8 @@ class ip_handler extends WhoisClient {
             $found = false;
 
             foreach ($rwdata as $line) {
+                if (strstr($line,'CIDR')){
+                }
                 if (!strncmp($line, 'American Registry for Internet Numbers', 38))
                     continue;
 
@@ -95,21 +97,24 @@ class ip_handler extends WhoisClient {
 
                 if ($p !== false) {
                     $net = strtok(substr($line, $p + 1), ') ');
-                    list($low, $high) = explode('-', str_replace(' ', '', substr($line, $p + strlen($net) + 3)));
+                    $clearedLine = str_replace(' ', '', substr($line, $p + strlen($net) + 3));
+                    if ($clearedLine !== '') {
+                        list($low, $high) = explode('-', str_replace(' ', '', substr($line, $p + strlen($net) + 3)));
 
-                    if (!isset($done[$net]) && $ip >= ip2long($low) && $ip <= ip2long($high)) {
-                        $owner = substr($line, 0, $p - 1);
+                        if (!isset($done[$net]) && $ip >= ip2long($low) && $ip <= ip2long($high)) {
+                            $owner = substr($line, 0, $p - 1);
 
-                        if (!empty($this->REGISTRARS['owner'])) {
-                            $this->handle_rwhois($this->REGISTRARS['owner'], $query);
-                            break 2;
-                        } else {
-                            $this->query['args'] = 'n ' . $net;
-                            $presults[] = $this->getRawData($net);
-                            $done[$net] = 1;
+                            if (!empty($this->REGISTRARS['owner'])) {
+                                $this->handle_rwhois($this->REGISTRARS['owner'], $query);
+                                break 2;
+                            } else {
+                                $this->query['args'] = 'n '.$net;
+                                $presults[] = $this->getRawData($net);
+                                $done[$net] = 1;
+                            }
                         }
+                        $found = true;
                     }
-                    $found = true;
                 }
             }
 
