@@ -1,7 +1,7 @@
 {
     "name": "prisjakt/phpwhois",
     "replace": {
-        "phpwhois/phpwhois": "self.version"
+        "phpwhois/phpwhois": "^4.2"
     },
     "description": "phpWhois - library for querying whois services and parsing results. Based on phpwhois.org",
     "keywords": ["PHP","Whois","phpWhois"],
