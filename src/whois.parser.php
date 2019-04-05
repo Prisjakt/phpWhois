@@ -98,7 +98,7 @@ function generic_parser_a_blocks($rawdata, $translate, &$disclaimer) {
             if ($k == '')
                 continue;
             if (strstr($k, '.')) {
-                eval("\$block" . getvarname($k) . "=\$v;");
+                $block = assign($block, $k, $v);
                 continue;
             }
         } else
@@ -336,11 +336,11 @@ function generic_parser_b($rawdata, $items = array(), $dateformat = 'mdy', $hasr
 
                 if ($pos !== false) {
                     if ($field != '') {
-                        $var = '$r' . getvarname($field);
                         $itm = trim(substr($val, $pos + strlen($match)));
 
-                        if ($itm != '')
-                            eval($var . '="' . str_replace('"', '\"', $itm) . '";');
+                        if ($itm != '') {
+                            $r = assign($r, $field, str_replace('"', '\"', $itm));
+                        }
                     }
 
                     if (!$scanall)
@@ -364,17 +364,43 @@ function generic_parser_b($rawdata, $items = array(), $dateformat = 'mdy', $hasr
     return $r;
 }
 
-function getvarname($vdef) {
-    $parts = explode('.', $vdef);
-    $var = '';
+/**
+ * @param array $array
+ * @param array $parts
+ * @param mixed $value
+ *
+ * @return array The updated array
+ * @see https://github.com/sparc/phpWhois.org/compare/18849d1a98b992190612cdb2561e7b4492c505f5...8c6a18686775b25f05592dd67d7706e47167a498#diff-b8adbe1292f8abca1f943aa844db52aa Original fix by David Saez Padros (sparc)
+ * @see https://github.com/jsmitty12/phpWhois/commit/863ccf62824f9998099ed20c2952ec8953ce3d06 Code style improvement by Joshua Smith (jsmitty12)
+ */
+function assign_recursive(array $array, array $parts, $value) {
+    $key = array_shift($parts);
+    if (count($parts) === 0) {
+        if (!$key) {
+            $array[] = $value;
+        } else {
+            $array[$key] = $value;
+        }
+    } else {
+        if (!isset($array[$key])) {
+            $array[$key] = [];
+        }
+        $array[$key] = assign_recursive($array[$key], $parts, $value);
+    }
+    return $array;
+}
 
-    foreach ($parts as $mn)
-        if ($mn == '')
-            $var = $var . '[]';
-        else
-            $var = $var . '["' . $mn . '"]';
-
-    return $var;
+/**
+ * @param array $array
+ * @param string $vdef
+ * @param mixed $value
+ *
+ * @return array The updated array
+ * @see https://github.com/sparc/phpWhois.org/compare/18849d1a98b992190612cdb2561e7b4492c505f5...8c6a18686775b25f05592dd67d7706e47167a498#diff-b8adbe1292f8abca1f943aa844db52aa Original fix by David Saez Padros (sparc)
+ * @see https://github.com/jsmitty12/phpWhois/commit/863ccf62824f9998099ed20c2952ec8953ce3d06 Code style improvement by Joshua Smith (jsmitty12)
+*/
+function assign(array $array, string $vdef, $value) {
+    return assign_recursive($array, explode('.', $vdef), $value);
 }
 
 function get_blocks($rawdata, $items, $partial_match = false, $def_block = false) {
@@ -407,9 +433,8 @@ function get_blocks($rawdata, $items, $partial_match = false, $def_block = false
                     $endtag = $last;
                     $line = $val;
                 } else {
-                    $var = getvarname(strtok($field, '#'));
-                    $itm = trim(substr($val, $pos + strlen($match)));
-                    eval('$r' . $var . '=$itm;');
+                    $var = strtok($field, '#');
+                    $r = assign($r, $var, trim(substr($val, $pos + strlen($match))));
                 }
 
                 break;
@@ -473,9 +498,10 @@ function get_blocks($rawdata, $items, $partial_match = false, $def_block = false
             $pos = strpos($line, $match);
 
             if ($pos !== false) {
-                $var = getvarname(strtok($field, '#'));
-                if ($var != '[]')
-                    eval('$r' . $var . '=$block;');
+                $var = strtok($field, '#');
+                if ($var != '[]') {
+                    $r = assign($r, $var, $block);
+                }
             }
         }
     }
@@ -556,6 +582,7 @@ function get_contact($array, $extra_items = array(), $has_org = false) {
         $items = $extra_items;
     }
 
+    $r = [];
     while (list($key, $val) = each($array)) {
         $ok = true;
 
@@ -571,11 +598,8 @@ function get_contact($array, $extra_items = array(), $has_org = false) {
 
                 $itm = trim(substr($val, $pos + strlen($match)));
 
-                /**
-                 * @todo Get rid of eval
-                 */
                 if ($field != '' && $itm != '') {
-                    eval('$r' . getvarname($field) . '=$itm;');
+                    $r = assign($r, $field, $itm);
                 }
 
                 $val = trim(substr($val, 0, $pos));
